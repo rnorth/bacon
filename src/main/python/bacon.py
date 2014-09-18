@@ -30,20 +30,22 @@ class BaseBuildJob(object):
 
         make_dir_if_needed(self.package_cache)
 
-    def check_changes(self):
+    def needs_rerun(self, fingerprint_tag):
 
-        self.package_hash = hash_dir(self.package_path)
-        if os.path.isfile(self.stored_fingerprint_path):
-            with open(self.stored_fingerprint_path) as fingerprint:
-                stored_fingerprint = fingerprint.read()
-            if self.package_hash == stored_fingerprint:
+        fingerprint_file_path = self.stored_fingerprint_path + "-" + fingerprint_tag
+        if os.path.isfile(fingerprint_file_path):
+            package_hash = hash_dir(self.package_path)
+            with open(fingerprint_file_path) as fingerprint_file:
+                stored_fingerprint = fingerprint_file.read()
+            if package_hash == stored_fingerprint:
                 # print "Skipping build for %s" % self.id
                 return False
         return True
 
-    def remember_fingerprint(self):
-        with open(self.stored_fingerprint_path, "w") as fingerprint:
-            fingerprint.write(self.package_hash)
+    def remember_fingerprint(self, fingerprint_tag):
+        with open(self.stored_fingerprint_path + "-" + fingerprint_tag, "w") as fingerprint:
+            package_hash = hash_dir(self.package_path)
+            fingerprint.write(package_hash)
 
     def clean(self):
         if os.path.isdir(self.package_cache):
@@ -84,7 +86,7 @@ class JavaModuleBuildJob(BaseBuildJob):
 
     def compile(self):
         # print "Building Java %s" % self.id
-        if self.check_changes() == False:
+        if not self.needs_rerun("compile"):
             return
 
         base_build_args = ['javac', '-d', self.classes_cache]
@@ -99,7 +101,7 @@ class JavaModuleBuildJob(BaseBuildJob):
 
             subprocess.check_call(command)
 
-        self.remember_fingerprint()
+        self.remember_fingerprint("compile")
 
     def run(self):
 
@@ -118,7 +120,7 @@ class JavaModuleBuildJob(BaseBuildJob):
 
     def archive(self):
 
-        if self.check_changes() == False:
+        if not self.needs_rerun("archive"):
             return
 
         if not self.data.has_key('archive'):
@@ -132,6 +134,8 @@ class JavaModuleBuildJob(BaseBuildJob):
                 jar_args.append(dependency_class)
 
         subprocess.check_call(jar_args)
+
+        self.remember_fingerprint("archive")
 
 
 class BundleBuildJob(BaseBuildJob):
