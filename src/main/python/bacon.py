@@ -49,7 +49,7 @@ class BaseBuildJob(object):
         if os.path.isdir(self.package_cache):
             shutil.rmtree(self.package_cache)
 
-    def build(self):
+    def compile(self):
         return
 
     def run(self):
@@ -82,7 +82,7 @@ class JavaModuleBuildJob(BaseBuildJob):
     def classpath_string(self):
         return ':'.join(self.calculate_classpath())
 
-    def build(self):
+    def compile(self):
         # print "Building Java %s" % self.id
         if self.check_changes() == False:
             return
@@ -200,14 +200,14 @@ parse_build_file(root_path)
 
 #print "task: %s" % task
 
-if task == "build":
-    goals = ["build"]
+if task == "compile":
+    goals = ["compile"]
 elif task == "clean":
     goals = ["clean"]
 elif task == "run":
-    goals = ["build", "run"]
+    goals = ["compile", "run"]
 elif task == "archive":
-    goals = ["build", "archive"]
+    goals = ["compile", "archive"]
 
 for goal in goals:
     for job_key in build_order:
@@ -215,8 +215,8 @@ for goal in goals:
         print "%30s :%s" % (job_key, goal)
 
         job = build_jobs[job_key]
-        if goal == "build":
-            job.build()
+        if goal == "compile":
+            job.compile()
         elif goal == "clean":
             job.clean()
         elif goal == "run":
