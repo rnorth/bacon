@@ -1,0 +1,4 @@
+type: bundle
+contents:
+ - examples/java-hello
+ - examples/java-foo

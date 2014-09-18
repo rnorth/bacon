@@ -1,0 +1,8 @@
+type: java
+dependencies:
+ - examples/java-foo
+main-class: Hello
+archive:
+  type: jar
+  groupId: org.example
+  artifactId: hello
