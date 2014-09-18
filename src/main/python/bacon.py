@@ -27,24 +27,29 @@ class BaseBuildJob(object):
         self.package_path = os.path.join(root_path, self.id)
         self.package_cache = os.path.join(self.package_path, '.bacon.d')
         self.stored_fingerprint_path = os.path.join(self.package_cache, "fingerprint")
+        self.dependency_jobs = []
 
         make_dir_if_needed(self.package_cache)
 
     def needs_rerun(self, fingerprint_tag):
 
         fingerprint_file_path = self.stored_fingerprint_path + "-" + fingerprint_tag
+        package_hash = self.fingerprint()
+
         if os.path.isfile(fingerprint_file_path):
-            package_hash = hash_dir(self.package_path)
             with open(fingerprint_file_path) as fingerprint_file:
                 stored_fingerprint = fingerprint_file.read()
             if package_hash == stored_fingerprint:
-                # print "Skipping build for %s" % self.id
+                print "Skipping build for %s:%s" % (self.id, fingerprint_tag)
                 return False
+
         return True
+
 
     def remember_fingerprint(self, fingerprint_tag):
         with open(self.stored_fingerprint_path + "-" + fingerprint_tag, "w") as fingerprint:
-            package_hash = hash_dir(self.package_path)
+            package_hash = self.fingerprint()
+
             fingerprint.write(package_hash)
 
     def clean(self):
@@ -60,6 +65,14 @@ class BaseBuildJob(object):
     def archive(self):
         return
 
+    def fingerprint(self):
+        package_hash = hash_dir(self.package_path)
+
+        for dependency in self.dependency_jobs:
+            package_hash.update(dependency.fingerprint())
+
+        return package_hash.hexdigest()
+
 
 class JavaModuleBuildJob(BaseBuildJob):
     """docstring for JavaModuleBuildJob"""
@@ -69,13 +82,16 @@ class JavaModuleBuildJob(BaseBuildJob):
         self.classes_cache = os.path.join(self.package_cache, "classes")
         self.archive_cache = os.path.join(self.package_cache, "dist")
 
+        if 'dependencies' in self.data:
+            for dependency_id in self.data['dependencies']:
+                self.dependency_jobs.append(build_jobs[dependency_id])
+
         make_dir_if_needed(self.classes_cache)
         make_dir_if_needed(self.archive_cache)
 
     def calculate_classpath(self):
         classpath = []
-        for dependency in self.data['dependencies']:
-            dependency_job = build_jobs[dependency]
+        for dependency_job in self.dependency_jobs:
             dependency_classes_cache = dependency_job.classes_cache
             classpath.append(dependency_classes_cache)
         classpath.append(self.classes_cache)
@@ -151,7 +167,7 @@ def hash_dir(dir):
                 buf = f.read(16384)
                 if len(buf) == 0: break
                 h.update(buf)
-    return h.hexdigest()
+    return h
 
 
 def make_dir_if_needed(path):
