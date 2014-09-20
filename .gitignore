@@ -125,3 +125,5 @@ include/
 .bacon.d/
 
 
+.testpackage/
+*.iml

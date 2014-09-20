@@ -5,7 +5,7 @@ dependencies:
 test-dependencies:
  - junit:junit:4.8.1
  - org.testpackage:testpackage:0.3.0
-main-class: Hello
+main-class: mycode.Hello
 archive:
   type: jar
   groupId: org.example

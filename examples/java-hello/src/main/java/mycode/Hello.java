@@ -9,6 +9,7 @@ public class Hello {
 
 	public static void main(String[] args) {
 		System.out.println("Hello " + Foo.FOO);
+		System.out.println("Goodbye " + new Bar());
         LOGGER.warn("This is a log statement using a dependency JAR");
 	}
 

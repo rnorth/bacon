@@ -93,16 +93,17 @@ class JavaModuleBuildJob(BaseBuildJob):
         if not self.needs_rerun("compile"):
             return
 
-        base_build_args = ['javac', '-d', self.classes_cache_directory]
-        base_build_args.append('-cp')
-        base_build_args.append(self.classpath_string("compile"))
+        classes_list_file_path = os.path.join(self.package_cache, "classes-list")
+        compile_command = ['javac', '-d', self.classes_cache_directory,
+                           '-cp', self.classpath_string("compile"),
+                           "@" + classes_list_file_path]
 
         source_glob = os.path.join(self.package_path, "src", "main", "java", "**", "*.java")
-        for source_file in glob2.glob(source_glob):
-            command = base_build_args
-            command.append(source_file)
 
-            subprocess.check_call(command)
+        with open(classes_list_file_path, "wb") as classes_list_file:
+            classes_list_file.write(" ".join(glob2.glob(source_glob)))
+
+        subprocess.check_call(compile_command)
 
         self.remember_fingerprint("compile")
 
