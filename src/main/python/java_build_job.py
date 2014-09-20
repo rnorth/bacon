@@ -138,7 +138,7 @@ class JavaModuleBuildJob(BaseBuildJob):
 
         command = base_run_args
         command.append("org.testpackage.TestPackage")
-        command.append("mytests")
+        command.append("mytests") # TODO remove hardcoding
 
         subprocess.check_call(command)
 
