@@ -31,7 +31,6 @@ class BaseBuildJob(object):
 
         return True
 
-
     def remember_fingerprint(self, fingerprint_tag):
         with open(self.stored_fingerprint_path + "-" + fingerprint_tag, "w") as fingerprint:
             package_hash = self.fingerprint()
@@ -43,13 +42,19 @@ class BaseBuildJob(object):
             shutil.rmtree(self.package_cache)
 
     def compile(self):
-        return
+        pass
+
+    def compile_test(self):
+            pass
+
+    def test(self):
+            pass
 
     def run(self):
-        return
+        pass
 
     def archive(self):
-        return
+        pass
 
     def fingerprint(self):
         package_hash = hash_dir(self.package_path)

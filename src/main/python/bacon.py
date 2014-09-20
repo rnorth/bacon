@@ -66,10 +66,12 @@ if task == "compile":
     goals = ["compile"]
 elif task == "clean":
     goals = ["clean"]
+elif task == "test":
+    goals = ["compile", "compileTest", "test"]
 elif task == "run":
-    goals = ["compile", "run"]
+    goals = ["compile", "compileTest", "test", "run"]
 elif task == "archive":
-    goals = ["compile", "archive"]
+    goals = ["compile", "compileTest", "test", "archive"]
 else:
     sys.exit("No recognized goal name was specified")
 
@@ -87,3 +89,7 @@ for goal in goals:
             job.run()
         elif goal == "archive":
             job.archive()
+        elif goal == "compileTest":
+            job.compile_test()
+        elif goal == "test":
+            job.test()

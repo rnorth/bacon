@@ -1,3 +1,5 @@
+package mycode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,4 +11,8 @@ public class Hello {
 		System.out.println("Hello " + Foo.FOO);
         LOGGER.warn("This is a log statement using a dependency JAR");
 	}
+
+    public static boolean alwaysTrue() {
+        return true;
+    }
 }

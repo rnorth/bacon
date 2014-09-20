@@ -24,7 +24,7 @@ class IvyDependencyJob(BaseBuildJob):
             print "Downloading ivy..."
             urllib.urlretrieve("http://central.maven.org/maven2/org/apache/ivy/ivy/2.3.0/ivy-2.3.0.jar", self.ivy_executable)
 
-    def classes_cache(self):
+    def classpath_string(self, scope):
         resolved_classpath_file = os.path.join(self.package_cache, "%s-%s-%s" % (self.group_id, self.artifact_id, self.version))
 
         if not isfile(resolved_classpath_file):
@@ -40,32 +40,50 @@ class IvyDependencyJob(BaseBuildJob):
 class JavaModuleBuildJob(BaseBuildJob):
     """docstring for JavaModuleBuildJob"""
 
+    def parse_dependencies(self, id, property_name, scope_list):
+        if property_name in self.data:
+            for dependency_id in self.data[property_name]:
+                if len(dependency_id.split(":")) == 3:
+                    # Ivy dependency
+                    job = IvyDependencyJob(id, dependency_id)
+                else:
+                    job = build_jobs[dependency_id]
+                self.dependency_jobs.append(job)
+                scope_list.append(job)
+
     def __init__(self, id, data):
         super(JavaModuleBuildJob, self).__init__(id, data)
         self.classes_cache_directory = os.path.join(self.package_cache, "classes")
+        self.test_classes_cache_directory = os.path.join(self.package_cache, "test-classes")
         self.archive_cache = os.path.join(self.package_cache, "dist")
+        self.compile_dependencies = []
+        self.test_dependencies = []
 
-        if 'dependencies' in self.data:
-            for dependency_id in self.data['dependencies']:
-                if len(dependency_id.split(":")) == 3:
-                    # Ivy dependency
-                    self.dependency_jobs.append(IvyDependencyJob(id, dependency_id))
-                else:
-                    self.dependency_jobs.append(build_jobs[dependency_id])
+        self.parse_dependencies(id, "dependencies", self.compile_dependencies)
+        self.parse_dependencies(id, "test-dependencies", self.test_dependencies)
 
         make_dir_if_needed(self.classes_cache_directory)
+        make_dir_if_needed(self.test_classes_cache_directory)
         make_dir_if_needed(self.archive_cache)
 
-    def calculate_classpath(self):
+    def calculate_classpath(self, scope):
+
         classpath = []
-        for dependency_job in self.dependency_jobs:
-            dependency_classes_cache = dependency_job.classes_cache()
+        if scope == "compile" or scope == "run":
+            scope_list = self.compile_dependencies
+            classpath.append(self.classes_cache_directory)
+        elif scope == "test":
+            scope_list = self.compile_dependencies + self.test_dependencies
+            classpath.append(self.classes_cache_directory)
+            classpath.append(self.test_classes_cache_directory)
+
+        for dependency_job in scope_list:
+            dependency_classes_cache = dependency_job.classpath_string(scope)
             classpath.append(dependency_classes_cache)
-        classpath.append(self.classes_cache_directory)
         return classpath
 
-    def classpath_string(self):
-        return ':'.join(self.calculate_classpath())
+    def classpath_string(self, scope):
+        return ':'.join(self.calculate_classpath(scope))
 
     def classes_cache(self):
         return self.classes_cache_directory
@@ -76,9 +94,8 @@ class JavaModuleBuildJob(BaseBuildJob):
             return
 
         base_build_args = ['javac', '-d', self.classes_cache_directory]
-        if self.data.has_key('dependencies'):
-            base_build_args.append('-cp')
-            base_build_args.append(self.classpath_string())
+        base_build_args.append('-cp')
+        base_build_args.append(self.classpath_string("compile"))
 
         source_glob = os.path.join(self.package_path, "src", "main", "java", "**", "*.java")
         for source_file in glob2.glob(source_glob):
@@ -89,15 +106,52 @@ class JavaModuleBuildJob(BaseBuildJob):
 
         self.remember_fingerprint("compile")
 
+    def compile_test(self):
+        # print "Building Java %s" % self.id
+        if not self.needs_rerun("compile_test"):
+            return
+
+        base_build_args = ['javac', '-d', self.test_classes_cache_directory]
+        base_build_args.append('-cp')
+        base_build_args.append(self.classpath_string("test"))
+
+        source_glob = os.path.join(self.package_path, "src", "test", "java", "**", "*.java")
+        for source_file in glob2.glob(source_glob):
+            command = base_build_args
+            command.append(source_file)
+
+            subprocess.check_call(command)
+
+        self.remember_fingerprint("compile_test")
+
+    def test(self):
+
+        if not self.needs_rerun("test"):
+            return
+
+        if len(glob2.glob(os.path.join(self.test_classes_cache_directory, "**", "*.class"))) == 0:
+            return
+
+        base_run_args = ['java']
+        base_run_args.append('-cp')
+        base_run_args.append(self.classpath_string("test"))
+
+        command = base_run_args
+        command.append("org.testpackage.TestPackage")
+        command.append("mytests")
+
+        subprocess.check_call(command)
+
+        self.remember_fingerprint("test")
+
     def run(self):
 
         if not self.data.has_key('main-class'):
             return
 
         base_run_args = ['java']
-        if self.data.has_key('dependencies'):
-            base_run_args.append('-cp')
-            base_run_args.append(self.classpath_string())
+        base_run_args.append('-cp')
+        base_run_args.append(self.classpath_string("run"))
 
         command = base_run_args
         command.append(self.data['main-class'])
@@ -115,7 +169,7 @@ class JavaModuleBuildJob(BaseBuildJob):
         archive_data = self.data['archive']
         artifact_path = os.path.join(self.archive_cache, "%s.jar" % archive_data['artifactId'])
         jar_args = ['jar', 'cf', artifact_path]
-        for dependency_path in self.calculate_classpath():
+        for dependency_path in self.classpath_string("run").split(":"):
             for dependency_class in glob2.glob(os.path.join(dependency_path, '**', '*.class')):
                 jar_args.append(dependency_class)
 
