@@ -6,6 +6,7 @@ import yaml
 from globals import build_jobs, build_order
 from bundle_build_job import BundleBuildJob
 from java_build_job import JavaModuleBuildJob
+from util import make_dir_if_needed
 
 
 def parse_build_file(package_path):
@@ -42,7 +43,8 @@ def parse_bundle_build_file(id, data):
 def parse_java_build_file(id, data):
     if data.has_key('dependencies'):
         for dependency in data['dependencies']:
-            parse_build_file(dependency)
+            if len(dependency.split(":")) != 3:
+                parse_build_file(dependency)
     return JavaModuleBuildJob(id, data)
 
 root_path = sys.argv[1]
@@ -52,7 +54,7 @@ if len(sys.argv) > 2:
 else:
     task = "build"
 
-
+make_dir_if_needed(os.path.expanduser("~/.bacon.d"))
 parse_build_file(root_path)
 
 # print "build order:"
